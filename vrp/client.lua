@@ -413,3 +413,167 @@ RegisterNetEvent('gcPhone:autoAcceptCall')
 AddEventHandler('gcPhone:autoAcceptCall', function(infoCall)
     SendNUIMessage({ event = "autoAcceptCall", infoCall = infoCall})
 end)
+
+
+
+--====================================================================================
+--  Gestion des evenements NUI
+--==================================================================================== 
+RegisterNUICallback('log', function(data, cb)
+    cb()
+end)
+RegisterNUICallback('focus', function(data, cb)
+    cb()
+end)
+RegisterNUICallback('blur', function(data, cb)
+    cb()
+end)
+RegisterNUICallback('reponseText', function(data, cb)
+    local limit = data.limit or 255
+    local text = data.text or ''
+
+    DisplayOnscreenKeyboard(1, "FMMC_MPM_NA", "", text, "", "", "", limit)
+    while (UpdateOnscreenKeyboard() == 0) do
+        DisableAllControlActions(0);
+        Wait(0);
+    end
+    if (GetOnscreenKeyboardResult()) then
+        text = GetOnscreenKeyboardResult()
+    end
+    cb(json.encode({text = text}))
+end)
+--====================================================================================
+--  Event - Messages
+--====================================================================================
+RegisterNUICallback('getMessages', function(data, cb)
+    cb(json.encode(messages))
+end)
+RegisterNUICallback('sendMessage', function(data, cb)
+    if data.message == '%pos%' then
+        local myPos = GetEntityCoords(PlayerPedId())
+        data.message = 'GPS: ' .. myPos.x .. ', ' .. myPos.y
+    end
+    TriggerServerEvent('gcPhone:sendMessage', data.phoneNumber, data.message)
+end)
+RegisterNUICallback('deleteMessage', function(data, cb)
+    deleteMessage(data.id)
+    cb()
+end)
+RegisterNUICallback('deleteMessageNumber', function (data, cb)
+    deleteMessageContact(data.number)
+    cb()
+end)
+RegisterNUICallback('deleteAllMessage', function (data, cb)
+    deleteAllMessage()
+    cb()
+end)
+RegisterNUICallback('setReadMessageNumber', function (data, cb)
+    setReadMessageNumber(data.number)
+    cb()
+end)
+--====================================================================================
+--  Event - Contacts
+--====================================================================================
+RegisterNUICallback('addContact', function(data, cb)
+    TriggerServerEvent('gcPhone:addContact', data.display, data.phoneNumber)
+end)
+RegisterNUICallback('updateContact', function(data, cb)
+    TriggerServerEvent('gcPhone:updateContact', data.id, data.display, data.phoneNumber, data.olddisplay)
+end)
+RegisterNUICallback('deleteContact', function(data, cb)
+    TriggerServerEvent('gcPhone:deleteContact', data.id)
+end)
+RegisterNUICallback('getContacts', function(data, cb)
+    cb(json.encode(contacts))
+end)
+RegisterNUICallback('setGPS', function(data, cb)
+    SetNewWaypoint(tonumber(data.x), tonumber(data.y))
+    cb()
+end)
+RegisterNUICallback('callEvent', function(data, cb)
+    if data.data ~= nil then
+        TriggerEvent(data.eventName, data.data)
+    else
+        TriggerEvent(data.eventName)
+    end
+    cb()
+end)
+RegisterNUICallback('deleteALL', function(data, cb)
+    TriggerServerEvent('gcPhone:deleteALL')
+    cb()
+end)
+
+RegisterNetEvent('gcPhone:openPhone')
+AddEventHandler('gcPhone:openPhone', function(phone)
+    SendNUIMessage({event = 'updatePhoneCover', phone = phone})
+    if phone ~= "Ingen" then
+        menuIsOpen = not menuIsOpen
+        SendNUIMessage({show = menuIsOpen})
+        PhonePlayIn()
+    end
+end)
+
+function TooglePhone()
+    if IsEntityVisible(PlayerPedId()) then
+        if menuIsOpen == true then
+            menuIsOpen = not menuIsOpen
+            SendNUIMessage({show = menuIsOpen})
+            PhonePlayOut()
+        else
+            local ped = GetPlayerPed(-1)
+            local playerHealth = GetEntityHealth(ped) - 100
+            if DoesEntityExist(ped) and playerHealth > 0 and vRP.isHandcuffed() == false and vRP.isInComa() == false then
+                blokerknap = true
+                TriggerServerEvent("gcPhone:hasPhone")
+            end
+        end
+    end
+end
+
+RegisterNUICallback('takePhoto', function(data, cb)
+    menuIsOpen = false
+    SendNUIMessage({show = false})
+    cb()
+    TriggerEvent('camera:open')
+end)
+RegisterNUICallback('useBilbasen', function(data, cb)
+    menuIsOpen = false
+    SendNUIMessage({show = false})
+    TriggerEvent("cardealer:openGui")
+    cb()
+end)
+RegisterNUICallback('closePhone', function(data, cb)
+    menuIsOpen = false
+    SendNUIMessage({show = false})
+    PhonePlayOut()
+    cb()
+end)
+
+
+
+
+----------------------------------
+---------- GESTION APPEL ---------
+----------------------------------
+RegisterNUICallback('appelsDeleteHistorique', function (data, cb)
+    appelsDeleteHistorique(data.numero)
+    cb()
+end)
+RegisterNUICallback('appelsDeleteAllHistorique', function (data, cb)
+    appelsDeleteAllHistorique(data.infoCall)
+    cb()
+end)
+
+
+----------------------------------
+---------- GESTION VIA WEBRTC ----
+----------------------------------
+
+function Emojit(text)
+    for i = 1, #emoji do
+        for k = 1, #emoji[i][1] do
+            text = string.gsub(text, emoji[i][1][k], emoji[i][2])
+        end
+    end
+    return text
+end
